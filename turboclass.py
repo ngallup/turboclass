@@ -50,16 +50,40 @@ createSubmission(options)
 print args
 
 class Turboclass(object):
+
+	# Initialize and create a record of important files
 	def __init__(self, turboDir=None):
+		self.homeDir = os.getcwd()
+
 		if turboDir == None:
 			self.turboDir = os.getcwd()
 		else:
 			self.turboDir = os.path.realpath(turboDir)
-		self.homeDir = os.getcwd()
-		
+
+		self.energy = os.path.join(self.turboDir, 'energy')
+		self.gradient = os.path.join(self.turboDir, 'gradient')
+		# ERROR CHECK LATER TO MAKE SURE THIS EXISTS
+		self.control = os.path.join(self.turboDir, 'control')
+
 		if os.path.exists(os.path.join(self.turboDir, 'turbohistory.txt')) == False:
 			temp = open(os.path.join(self.turboDir, 'turbohistory.txt'), 'w')
 			temp.close()
+
+	# Use of len(turboclassinstance) will return the number of configurations
+	# in the current turbomole directory
+	def __len__(self):
+		with open(self.energy, 'r') as ener_file:
+			ener_file_lines = ener_file.readlines()
+			return len(ener_file_lines[1:-1]) # Doesn't read $end or $energy
+	
+	# Comparisons made using the '==' operator will compare the current
+	# turbomole directory against the comparison.  Good for making sure
+	# different instances aren't working in the same directory.
+	def __eq__(self, comparison):
+		if self.turboDir == comparison:
+			return True
+		else:
+			return False
 
 	# For running a simple ridft.  Rollback variable implemented for easy recall
 	# of an energy for a particular geometry.  Rollback feature could be
