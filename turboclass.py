@@ -85,6 +85,21 @@ class Turboclass(object):
 		else:
 			return False
 
+	# Returns the latest energy from the energy file with the specified units
+	def getEnergy(self, units='hartree'):
+		with open(self.energy, 'r') as ener_file:
+			final_line = ener_file.readlines()[-2]
+			iter, ener, kin, pot = final_line.split()
+			conversion = {'hartree': 1, 'eV' : 27.2107, 'ev': 27.2107,
+					'wavenumbers': 219474.63, 'cm^-1': 219474.63, 'cm-1': 219474.63,
+					'kcal/mol': 627.503, 'kJ/mol': 2625.5, 'kj/mol': 2625.5}
+			try:
+				return float(ener) * conversion[units]
+			except:
+				print "Unit not recognized"
+				return
+
+
 	# For running a simple ridft.  Rollback variable implemented for easy recall
 	# of an energy for a particular geometry.  Rollback feature could be
 	# implemented here or in a dedicated rollback function
