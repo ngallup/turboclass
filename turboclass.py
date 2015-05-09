@@ -18,7 +18,7 @@ March 2015, UCLA
 ==============================================================================
 '''
 
-import os, sys, re, optparse, subprocess
+import os, sys, optparse, subprocess
 import freeze, unfreeze
 
 # For easy submission, FINISH LATER.  LONG TERM.
@@ -65,8 +65,8 @@ class Turboclass(object):
 		# ERROR CHECK LATER TO MAKE SURE THIS EXISTS
 		self.control = os.path.join(self.turboDir, 'control')
 
-		if os.path.exists(os.path.join(self.turboDir, 'turbohistory.txt')) == False:
-			temp = open(os.path.join(self.turboDir, 'turbohistory.txt'), 'w')
+		if os.path.exists(os.path.join(self.turboDir, 'turbohistory.log')) == False:
+			temp = open(os.path.join(self.turboDir, 'turbohistory.log'), 'w')
 			temp.close()
 
 	# Use of len(turboclassinstance) will return the number of configurations
@@ -94,6 +94,7 @@ class Turboclass(object):
 		if rollback != None:
 			pass
 		
+		print "Submitting ridft command"
 		p = subprocess.Popen("ridft", shell=True, cwd=self.turboDir, 
 									stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 		out = p.stdout.read()
@@ -122,12 +123,51 @@ class Turboclass(object):
 			
 			tries += 1
 
+		print "ridft has successfully finished"
+
 	# For running a simple rdgrad.  Rollback variable implemented for easy 
 	# recall of a gradient for a particular geometry.  Rollback feature could be
 	# implemented here or in a dedicated rollback function
 	def rdgrad(self, rollback=None):
-		os.system("rdgrad")
+		
+		# Implement some other time
+		if rollback != None:
+			pass
+
+		print "Submitting rdgrad command"
+		p = subprocess.Popen("rdgrad", shell=True, cwd=self.turboDir,
+									stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+		out = p.stdout.read()
+		print out
+
+		# Error several times and troubleshoot
+		tries = 1
+		numtries = 2
+		while "rdgrad ended abnormally" in out:
+			if tries > numtries:
+				print "rdgrad has failed for unknown reasons and could not be " \
+						"recovered.  Check that the setup is alright."
+				sys.exit(1)
+			
+			print "Abnormal termination detected.  Attempting actual -r "
+			actual = subprocess.Popen("actual -r", shell=True, cwd=self.turboDir,
+								stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+			out = actual.stdout.read()
+			print out
 	
+			print "Re-attempting rdgrad"
+			p = subprocess.Popen("rdgrad", shell=True, cwd=self.turboDir,
+								stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+			out = p.stdout.read()
+			print out
+			
+			# Try running ridft to fix the problem
+			if "rdgrad ended abnormally" in out:
+				print "actual -r didn't work.  Trying new ridft."
+				self.ridft()
+		
+		print "rdgrad has successfully finished"
+
 	# For running jobex.  Rollback vairable implemented for easy recall of a 
 	# particular geometry.  Rollback feature could be implemented
 	# here or in a dedicated rollback function.  'otherflags' is a placeholder
