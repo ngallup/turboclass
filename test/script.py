@@ -8,7 +8,7 @@ import turboclass
 
 test = turboclass.Turboclass()
 
-test.ridft()
+#test.ridft()
 
-#test.rdgrad()
+test.rdgrad()
 
