@@ -22,20 +22,13 @@ $rundimensions
 $uhfmo_alpha   file=alpha
 $uhfmo_beta   file=beta
 $uhf
-$alpha shells
- a       1-5                                    ( 1 )
-$beta shells
- a       1-5                                    ( 1 )
 $scfiterlimit      400
-$scfconv        7
 $thize     0.10000000E-04
 $thime        5
-$scfdamp   start=1.000  step=0.050  min=0.100
 $scfdump
 $scfintunit
  unit=30       size=0        file=twoint
 $scfdiis
-$scforbitalshift  automatic=.1
 $drvopt
    cartesian  on
    basis      off
@@ -68,10 +61,21 @@ $ricore      200
 $rij
 $jbas    file=auxbasis
 $marij
-$last step     ridft
 $last SCF energy change = 0.70811268E-09
 $dipole from ridft
   x     0.65736087323384    y    -0.00000000000001    z    -0.46482631936172    a.u.
    | dipole | =    2.0463768352  debye
 $orbital_max_rnorm 0.43234600694774E-09
+$alpha shells
+ a       1-5                                    ( 1 )
+$beta shells
+ a       1-5                                    ( 1 )
+$dft
+   functional tpss
+   gridsize   m3
+$disp3
+$scfconv   6
+$scfdamp   start=0.700  step=0.050  min=0.050
+$scforbitalshift  closedshell=.05
+$last step     define
 $end
