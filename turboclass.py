@@ -185,10 +185,78 @@ class Turboclass(object):
 
 	# For running jobex.  Rollback vairable implemented for easy recall of a 
 	# particular geometry.  Rollback feature could be implemented
-	# here or in a dedicated rollback function.  'otherflags' is a placeholder
-	# for all the flags that will be necessary with jobex (energy, gcart, etc.)
-	def jobex(self, rollback=None, otherflags=None):
-		pass
+	# here or in a dedicated rollback function.
+	# Trans should be removed and rolled into a different method for a more
+	# readable method with more advanced error handling.  Maybe.
+	# level should automatically detect its function from the control file
+	# -l, -ls, -md, -mdfile, -mdscript, -help will probably not be implemented
+	def jobex(self, rollback=None, energy=6, gcart=3, c=20, dscf=False, 
+		grad=False, statpt=False, relax=False, trans=False, level='scf',
+		ri=False, rijk=False, ex=False, keep=False):
+		
+		# Organize True/False args into a dictionary of a dictonary for easy access
+		flags = { 
+			'dscf'   : {True : '-dscf ',   False: ''}, 
+			'grad'   : {True : '-grad ',   False: ''},
+			'statpt' : {True : '-statpt ', False: ''},
+			'relax'  : {True : '-relax ',  False: ''},
+			'trans'  : {True : '-trans ',  False: ''},
+			'ri'     : {True : '-ri ',     False: ''},
+			'rijk'   : {True : '-rijk ',   False: ''},
+			'ex'     : {True : '-ex ',     False: ''},
+			'keep'   : {True : '-keep ',   False: ''} }
+
+		# Implement later
+		if rollback != None:
+			pass
+		
+		comm =  "jobex -energy %s -gcart %s -c %s -level %s " % \
+			(energy, gcart, c, level)
+		comm += flags['dscf'][dscf]
+		comm += flags['grad'][grad]
+		comm += flags['statpt'][statpt]
+		comm += flags['relax'][relax]
+		comm += flags['trans'][trans]
+		comm += flags['ri'][ri]
+		comm += flags['rijk'][rijk]
+		comm += flags['ex'][ex]
+		comm += flags['keep'][keep]
+
+		# Begin sending commands to the shell
+		print "Submitting command %s command" % comm
+		opt = subprocess.Popen(comm, shell=True, cwd=self.turboDir,
+			stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+		
+		opt_out = opt.stdout.read()
+		print opt_out
+
+		# Super shitty troubleshooting.  Needs refining.
+		tries = 1
+		numtries = 2
+		while "program stopped" in opt_out:
+			if tries > numtries:
+				print "jobex has failed for unknown reasons and could not be " \
+					"recovered.  Check that the setup is alright."
+				sys.exit(1)
+
+			print "Abnormal termination detected.  Attempting actual -r"
+			actual = subprocess.Popen("actual -r", shell=True, cwd=self.turboDir,
+				stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+			
+			opt_out = actual.stdout.read()
+
+			print "Re-attempting %s command" % comm
+			new_opt = subprocess.Popen(comm, shell=True, cwd=self.turboDir,
+				stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+			opt_out = new_opt.stdout.read()
+			print opt_out
+
+			# Try running ridft to fix the problem, if there was one
+			if "program stopped" in opt_out:
+				print "actual -r didn't work.  Trying new ridft."
+				self.ridft()
+			tries += 1
 
 	def constrained_int_opt(self, rollback=None, otherflags=None):
 		pass
