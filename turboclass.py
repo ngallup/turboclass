@@ -65,9 +65,11 @@ class Turboclass(object):
 		# ERROR CHECK LATER TO MAKE SURE THIS EXISTS
 		self.control = os.path.join(self.turboDir, 'control')
 
-		if os.path.exists(os.path.join(self.turboDir, 'turbohistory.log')) == False:
-			temp = open(os.path.join(self.turboDir, 'turbohistory.log'), 'w')
-			temp.close()
+		# Create and open stream to log file
+		self.logPath = os.path.join(self.turboDir, 'turbohistory.log')
+		self.log = open(self.logPath, 'r+')
+		self.firstLog = True
+		self.logNum = None
 
 	# Use of len(turboclassinstance) will return the number of configurations
 	# in the current turbomole directory
@@ -80,10 +82,28 @@ class Turboclass(object):
 	# turbomole directory against the comparison.  Good for making sure
 	# different instances aren't working in the same directory.
 	def __eq__(self, comparison):
-		if self.turboDir == comparison:
+		if self.turboDir == comparison.turboDir:
 			return True
 		else:
 			return False
+
+	# Used to conveniently write messages to the log file
+	def writeLog(self, message):
+
+		# First check if this is the first log being written for this instance
+		# and write header if so
+		if self.firstLog == True:
+			self.firstLog = False
+			logLines = self.log.readlines()
+			entries = []
+			for line in logLines:
+				if '-- LOG --' in line:
+					entries.append(line.rstrip('\n'))
+			self.logNum = len(entries) + 1
+			self.log.write("\n-- LOG -- %s\n" % self.logNum)
+		
+		# Finally write message to block
+		self.log.write(message + '\n')
 
 	# Returns the latest energy from the energy file with the specified units
 	def getEnergy(self, units='hartree'):
@@ -110,6 +130,7 @@ class Turboclass(object):
 			pass
 		
 		print "Submitting ridft command"
+		self.writeLog('Submitting ridft command')
 		p = subprocess.Popen("ridft", shell=True, cwd=self.turboDir, 
 									stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 		out = p.stdout.read()
@@ -122,15 +143,19 @@ class Turboclass(object):
 			if tries > numtries:
 				print "ridft has failed for unknown reasons and could not be " \
 						"recovered.  Check that the setup is alright"
+				self.writeLog("ridft has failed for unknown reasons and could not be " \
+					"recovered.  Check that the setup is alright")
 				sys.exit(1)
 
 			print "Abnormal termination detected.  Attempting actual -r"
+			self.writeLog("Abnormal termination detected.  Attempting actual -r")
 			actual = subprocess.Popen("actual -r", shell=True, cwd=self.turboDir,
 									stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 			out = actual.stdout.read()
 			print out
 			
 			print "Re-attempting ridft"
+			self.writeLog("Re-attempting ridft")
 			p = subprocess.Popen("ridft", shell=True, cwd=self.turboDir,
 								stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 			out = p.stdout.read()
@@ -139,6 +164,7 @@ class Turboclass(object):
 			tries += 1
 
 		print "ridft has successfully finished"
+		self.writeLog("ridft has successfully finished")
 
 	# For running a simple rdgrad.  Rollback variable implemented for easy 
 	# recall of a gradient for a particular geometry.  Rollback feature could be
@@ -150,6 +176,7 @@ class Turboclass(object):
 			pass
 
 		print "Submitting rdgrad command"
+		self.writeLog("Submitting rdgrad command")
 		p = subprocess.Popen("rdgrad", shell=True, cwd=self.turboDir,
 									stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 		out = p.stdout.read()
@@ -162,15 +189,19 @@ class Turboclass(object):
 			if tries > numtries:
 				print "rdgrad has failed for unknown reasons and could not be " \
 						"recovered.  Check that the setup is alright."
+				self.writeLog("rdgrad has failed for unknown reasons and could not be " \
+					"recovered.  Check that the setup is alright.")
 				sys.exit(1)
 			
 			print "Abnormal termination detected.  Attempting actual -r "
+			self.writeLog("Abnormal termination detected.  Attempting actual -r")
 			actual = subprocess.Popen("actual -r", shell=True, cwd=self.turboDir,
 								stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 			out = actual.stdout.read()
 			print out
 	
 			print "Re-attempting rdgrad"
+			self.writeLog("Re-attempting rdgrad")
 			p = subprocess.Popen("rdgrad", shell=True, cwd=self.turboDir,
 								stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 			out = p.stdout.read()
@@ -179,9 +210,11 @@ class Turboclass(object):
 			# Try running ridft to fix the problem
 			if "rdgrad ended abnormally" in out:
 				print "actual -r didn't work.  Trying new ridft."
+				self.writeLog("actual -r didn't work.  Trying new ridft.")
 				self.ridft()
 		
 		print "rdgrad has successfully finished"
+		self.writeLog("rdgrad has successfully finished")
 
 	# For running jobex.  Rollback vairable implemented for easy recall of a 
 	# particular geometry.  Rollback feature could be implemented
@@ -223,7 +256,8 @@ class Turboclass(object):
 		comm += flags['keep'][keep]
 
 		# Begin sending commands to the shell
-		print "Submitting command %s command" % comm
+		print "Submitting command %s" % comm
+		self.writeLog("Submitting command %s" % comm)
 		opt = subprocess.Popen(comm, shell=True, cwd=self.turboDir,
 			stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 		
@@ -237,15 +271,19 @@ class Turboclass(object):
 			if tries > numtries:
 				print "jobex has failed for unknown reasons and could not be " \
 					"recovered.  Check that the setup is alright."
+				self.writeLog("jobex has failed for unknown reasons and could not be " \
+					"recovered.  Check that the setup is alright.")
 				sys.exit(1)
 
 			print "Abnormal termination detected.  Attempting actual -r"
+			self.writeLog("Abnormal termination detected.  Attempting actual -r")
 			actual = subprocess.Popen("actual -r", shell=True, cwd=self.turboDir,
 				stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 			
 			opt_out = actual.stdout.read()
 
 			print "Re-attempting %s command" % comm
+			self.writeLog("Re-attempting %s command" % comm)
 			new_opt = subprocess.Popen(comm, shell=True, cwd=self.turboDir,
 				stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
@@ -255,8 +293,13 @@ class Turboclass(object):
 			# Try running ridft to fix the problem, if there was one
 			if "program stopped" in opt_out:
 				print "actual -r didn't work.  Trying new ridft."
+				self.writeLog("actual -r didn't work.  Trying new ridft.")
 				self.ridft()
+
 			tries += 1
+
+		print "Jobex command has successfully finished"
+		self.writeLog("Jobex command has successfully finished")
 
 	def constrained_int_opt(self, rollback=None, otherflags=None):
 		pass
