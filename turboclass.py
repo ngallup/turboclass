@@ -147,6 +147,14 @@ class Turboclass(object):
 				print "Unit not recognized"
 				return
 
+	# Helper function for detecting if -ri flags should be used
+	def detect_ri(self):
+		with open(self.control, 'r') as controlFile:
+			control_lines = controlFile.read()
+			if "$rij" is in control_lines:
+				return True
+			else:
+				return False
 
 	# For running a simple ridft.  Rollback variable implemented for easy recall
 	# of an energy for a particular geometry.  Rollback feature could be
@@ -244,8 +252,12 @@ class Turboclass(object):
 	# -l, -ls, -md, -mdfile, -mdscript, -help will probably not be implemented
 	def jobex(self, rollback=None, energy=6, gcart=3, c=20, dscf=False, 
 		grad=False, statpt=False, relax=False, trans=False, level='scf',
-		ri=False, rijk=False, ex=False, keep=False):
+		ri='', rijk=False, ex=False, keep=False):
 		
+		# Auto-detect certain flags
+		if ri == '':
+			ri = self.detect_ri()
+
 		# Organize True/False args into a dictionary of a dictonary for easy access
 		flags = { 
 			'dscf'   : {True : '-dscf ',   False: ''}, 
@@ -325,11 +337,15 @@ class Turboclass(object):
 	#  automatic ri
 	#  automatic level
 	#  mfile generation
-	def numforce(self, rollback=None, ri=False, rijk=False, level='',
+	def numforce(self, rollback=None, ri='', rijk=False, level='',
 		ex='', d='', thrgrd='', central=False, polyedr=False,
 		ecnomic=False, diatmic=False, size='', mfile='', i=False,
 		c=False, prep=False, l='', ls='', scrpath='', override=False,
 		frznuclei=False, cosmo=False):
+
+		# Auto-detect some flags
+		if ri == '':
+			ri = self.detect_ri()
 		
 		if level != '':
 			level = " -level %s" % level
