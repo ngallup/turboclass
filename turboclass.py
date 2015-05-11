@@ -176,6 +176,78 @@ class Turboclass(object):
 					return True
 		return False
 
+	# For rolling back a calculation to a particular configuration.  Method
+	# will truncate energy and gradient files and replace coord with
+	# appropriate geometry
+	# DOES NOT CURRENTLY SUPPORT INTERNAL COORDINATES
+	def rollback(self, geometry=None):
+		
+		# No configuration specified so exit
+		if geometry == None:
+			return
+		
+		# Configuration greater than number available
+		if geometry > len(self):
+			pass # Throw and error		
+
+
+		# If cartesian coords do one thing, else if internal, do another
+		with open(self.control, 'r') as controlFile:
+			lines = controlFile.read()
+			if "$intdef" in lines: # Pick some other metric
+				pass # Do internal specific routine
+			else:
+				pass # Do normal routine
+
+		# Truncate energies
+		with open(self.energy, 'r') as enerFile:
+			ener_lines = enerFile.readlines()
+			ener_lines = ener_lines[:geometry+1]
+		with open(self.energy, 'w') as enerFile:
+			for line in ener_lines:
+				enerFile.write(line)
+			if "$end" not in ener_lines[-1]:
+				enerFile.write("$end")
+
+		# Find coords and truncate gradient
+		with open(self.gradient, 'r') as gradFile:
+			gradLines = []
+			coordLines = []
+			isCycle = False
+
+			for line in gradFile:
+				if isCycle == True and 'cycle' in line:
+					break
+				if '$end' in line:
+					break
+				gradLines.append(line)
+				if isCycle == True and len(line.split()) > 3:
+					coordLines.append(line)
+				if 'cycle =%7s' % geometry in line:
+					isCycle = True
+			
+			# Throw error if no coordinates found in gradient file
+			if coordLines == []:
+				message = "Warning!  Rollback couldn't find coordinates "
+				message += "corresponding to configuration %s.  " % geometry
+				message += "Make sure the gradient file exists, and there is"
+				message += " a coordinate entry for that configuration."
+				
+				print message
+				self.writeLog(message)
+				sys.exit(1)
+
+		# Write out truncated gradient and new coord file
+		with open(self.gradient, 'w') as gradFile:
+			for line in gradLines:
+				gradFile.write(line)
+			gradFile.write("$end")
+
+		with open(self.coord, 'w') as coordFile:
+			coordFile.write('$coord\n')
+			for line in coordLines:
+				coordFile.write(line)
+			coordFile.write('$end')
 
 	# For running a simple ridft.  Rollback variable implemented for easy recall
 	# of an energy for a particular geometry.  Rollback feature could be
@@ -486,5 +558,3 @@ class Turboclass(object):
 	def constrained_int_ts(self, rollback=None, otherflags=None):
 		pass
 	
-	def rollback(self):
-		pass
