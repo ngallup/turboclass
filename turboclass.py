@@ -151,10 +151,20 @@ class Turboclass(object):
 	def detect_ri(self):
 		with open(self.control, 'r') as controlFile:
 			control_lines = controlFile.read()
-			if "$rij" is in control_lines:
+			if "$rij" in control_lines:
 				return True
 			else:
 				return False
+
+	# Helper function for detecting -level <func>
+	def detect_level(self):
+		with open(self.control, 'r') as controlFile:
+			level = 'scf' # Set Turbomole default
+			for line in controlFile:
+				if "functional" in line:
+					functional, level = line.split()
+					return level
+
 
 	# For running a simple ridft.  Rollback variable implemented for easy recall
 	# of an energy for a particular geometry.  Rollback feature could be
@@ -257,6 +267,8 @@ class Turboclass(object):
 		# Auto-detect certain flags
 		if ri == '':
 			ri = self.detect_ri()
+		if level == 'scf':
+			level = self.detect_level()
 
 		# Organize True/False args into a dictionary of a dictonary for easy access
 		flags = { 
@@ -346,6 +358,8 @@ class Turboclass(object):
 		# Auto-detect some flags
 		if ri == '':
 			ri = self.detect_ri()
+		if level == '':
+			level = self.detect_level()
 		
 		if level != '':
 			level = " -level %s" % level
