@@ -158,12 +158,14 @@ class Turboclass(object):
 				return False
 
 	# Helper function for detecting -level <func>
+	# level = CC2, MP2, SCF, not a functional
+	# Fix some other time
 	def detect_level(self):
-		with open(self.control, 'r') as controlFile:
-			for line in controlFile:
-				if "functional" in line:
-					functional, level = line.split()
-					return level
+		#with open(self.control, 'r') as controlFile:
+		#	for line in controlFile:
+		#		if "functional" in line:
+		#			functional, level = line.split()
+		#			return level
 		return 'scf'
 
 	# Helper function for detecting -frznuclei flag in numforce
@@ -463,8 +465,17 @@ class Turboclass(object):
 				print "...Now Trying rdgrad."
 				self.writeLog("...Now trying rdgrad.")
 				self.rdgrad()
-
+			
 			tries += 1
+			
+		# Check for missing gradient error
+		if "Can not find data group $grad" in num_out:
+			print "Gradient is missing.  Running rdgrad."
+			self.writeLog("Gradient is missing.  Running rdgrad.")
+			self.rdgrad()
+
+			message = "Re-submitting command %s" % comm
+			self.sendToTerminal(comm, message)
 
 		print "NumForce has successfully finished."
 		self.writeLog("Numforce has successfully finished.")
