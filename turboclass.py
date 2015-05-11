@@ -249,6 +249,9 @@ class Turboclass(object):
 				coordFile.write(line)
 			coordFile.write('$end')
 
+		print "System has been rolled back to configuration %s" % geometry
+		self.writeLog("System has been rolled back to configuration %s" % geometry)
+
 	# For running a simple ridft.  Rollback variable implemented for easy recall
 	# of an energy for a particular geometry.  Rollback feature could be
 	# implemented here or in a dedicated rollback function
