@@ -67,6 +67,11 @@ class Turboclass(object):
 
 		# Create and open stream to log file
 		self.logPath = os.path.join(self.turboDir, 'turbohistory.log')
+
+		if os.path.exists(self.logPath) == False:
+			with open(self.logPath, 'w') as createLog:
+				pass
+
 		self.log = open(self.logPath, 'r+')
 		self.firstLog = True
 		self.logNum = None
@@ -105,6 +110,29 @@ class Turboclass(object):
 		# Finally write message to block
 		self.log.write(message + '\n')
 
+	# Helper function to send commands to the terminal
+	def sendToTerminal(self, command, message):
+		
+		# Print and log message
+		print message
+		self.writeLog(message)
+
+		# Return a subprocess with the command
+		return subprocess.Popen(command, shell=True, cwd=self.turboDir,
+			stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+	# Helper function to send actual -r commands and record them
+	def sendActual(self, message):
+		print message
+		self.writeLog(message)
+
+		actual = subprocess.Popen("actual -r", shell=True, cwd=self.turboDir,
+			stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+		
+		actual_out = actual.stdout.read()
+		print actual_out
+		self.writeLog(actual_out.rstrip('\n'))
+	
 	# Returns the latest energy from the energy file with the specified units
 	def getEnergy(self, units='hartree'):
 		with open(self.energy, 'r') as ener_file:
@@ -147,12 +175,7 @@ class Turboclass(object):
 					"recovered.  Check that the setup is alright")
 				sys.exit(1)
 
-			print "Abnormal termination detected.  Attempting actual -r"
-			self.writeLog("Abnormal termination detected.  Attempting actual -r")
-			actual = subprocess.Popen("actual -r", shell=True, cwd=self.turboDir,
-									stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-			out = actual.stdout.read()
-			print out
+			self.sendActual("Abnormal termination detected.  Attempting actual -r.")
 			
 			print "Re-attempting ridft"
 			self.writeLog("Re-attempting ridft")
@@ -193,12 +216,8 @@ class Turboclass(object):
 					"recovered.  Check that the setup is alright.")
 				sys.exit(1)
 			
-			print "Abnormal termination detected.  Attempting actual -r "
-			self.writeLog("Abnormal termination detected.  Attempting actual -r")
-			actual = subprocess.Popen("actual -r", shell=True, cwd=self.turboDir,
-								stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-			out = actual.stdout.read()
-			print out
+			message = "Abnormal termination detected.  Attempting actual -r"
+			self.sendActual(message)
 	
 			print "Re-attempting rdgrad"
 			self.writeLog("Re-attempting rdgrad")
@@ -275,12 +294,8 @@ class Turboclass(object):
 					"recovered.  Check that the setup is alright.")
 				sys.exit(1)
 
-			print "Abnormal termination detected.  Attempting actual -r"
-			self.writeLog("Abnormal termination detected.  Attempting actual -r")
-			actual = subprocess.Popen("actual -r", shell=True, cwd=self.turboDir,
-				stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-			
-			opt_out = actual.stdout.read()
+			message = "Abnormal termination detected.  Attempting actual -r"
+			self.sendActual(message)
 
 			print "Re-attempting %s command" % comm
 			self.writeLog("Re-attempting %s command" % comm)
@@ -300,6 +315,118 @@ class Turboclass(object):
 
 		print "Jobex command has successfully finished"
 		self.writeLog("Jobex command has successfully finished")
+
+	# For running numfore in either a serial or parallel environment.  Rollback
+	# method not currently implemented and mfile implementation is probably
+	# rudimentary.  Currently -scrpath, -l, and -ls is a little mysterious 
+	# and I haven't tested how to use them
+	# Ideas to implement later: 
+	#  automatic detection of frznuclei
+	#  automatic ri
+	#  automatic level
+	#  mfile generation
+	def numforce(self, rollback=None, ri=False, rijk=False, level='',
+		ex='', d='', thrgrd='', central=False, polyedr=False,
+		ecnomic=False, diatmic=False, size='', mfile='', i=False,
+		c=False, prep=False, l='', ls='', scrpath='', override=False,
+		frznuclei=False, cosmo=False):
+		
+		if level != '':
+			level = " -level %s" % level
+		if d != '':
+			d = " -d %s" %d
+		if thrgrd != '':
+			thrgrd = " -thrgrd %s" % thrgrd
+		if ex != '':
+			ex = " -ex %s" % ex
+		if size != '':
+			size = " -%s" % size
+		if mfile != '':
+			mfile = " -mfile %s" % mfile
+		if l != '':
+			l = " -l %s" % l
+		if ls != '':
+			ls = " -ls %s" % ls
+		if scrpath != '':
+			scrpath = " -scrpath %s" % scrpath
+
+		flags = {
+			'ri'      : {True : ' -ri',   False : ''},
+			'rijk'    : {True : ' -rijk', False : ''},
+			'central' : {True : ' -central', False : ''},
+			'polyedr' : {True : ' -polyedr', False : ''},
+			'ecnomic' : {True : ' -ecnomic', False : ''},
+			'diatmic' : {True : ' -diatmic', False : ''},
+			'i'       : {True : ' -i',    False : ''},
+			'c'       : {True : ' -c',    False : ''},
+			'prep'    : {True : ' -prep', False : ''},
+			'override': {True : ' -override',False : ''},
+			'frznuclei':{True : ' -frznuclei',False: ''},
+			'cosmo'   : {True : ' -cosmo',False : ''} }
+
+		# Assemble command and list of flags
+		comm = 'NumForce'
+		comm += level + d + thrgrd + ex + size + mfile + l + ls + scrpath
+		comm += flags['ri'][ri]
+		comm += flags['rijk'][rijk]
+		comm += flags['central'][central]
+		comm += flags['polyedr'][polyedr]
+		comm += flags['ecnomic'][ecnomic]
+		comm += flags['diatmic'][diatmic]
+		comm += flags['i'][i]
+		comm += flags['c'][c]
+		comm += flags['prep'][prep]
+		comm += flags['override'][override]
+		comm += flags['frznuclei'][frznuclei]
+		comm += flags['cosmo'][cosmo]
+
+		# Implement later
+		if rollback != None:
+			pass
+
+		text = "Submitting command %s" % comm
+		num_run = self.sendToTerminal(comm, text)
+
+		num_out = num_run.stdout.read()
+		print num_out
+
+		# Try to troubleshoot
+		tries = 1
+		numtries = 2
+		while "program stopped" in num_out:
+
+			# Terminal error
+			if tries > numtries:
+				text = "NumForce has failed for unknown reasons and could not be" \
+					" recovered.  Check that the setup is alright."
+				print text
+				self.writeLog(text)
+				sys.exit(1)
+
+			# Try actual -r
+			actual_msg = 'Abnormal termination detected.  Attempting actual -r.'
+			self.sendActual(actual_msg)
+
+			text = "Re-submitting command %s" % comm
+			num_run = self.sendToTerminal(comm, text)
+
+			num_out = num_run.stdout.read()
+			print num_out
+
+			# Try running ridft and rdgrad to fix the problem if there was one
+			if "program stopped" in num_out:
+				print "actual -r didn't work.  Trying ridft -> rdgrad."
+				self.writeLog("actual -r didn't work.  Trying ridft -> rdgrad.")
+				self.ridft()
+
+				print "...Now Trying rdgrad."
+				self.writeLog("...Now trying rdgrad.")
+				self.rdgrad()
+
+			tries += 1
+
+		print "NumForce has successfully finished."
+		self.writeLog("Numforce has successfully finished.")
 
 	def constrained_int_opt(self, rollback=None, otherflags=None):
 		pass
