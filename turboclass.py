@@ -160,11 +160,11 @@ class Turboclass(object):
 	# Helper function for detecting -level <func>
 	def detect_level(self):
 		with open(self.control, 'r') as controlFile:
-			level = 'scf' # Set Turbomole default
 			for line in controlFile:
 				if "functional" in line:
 					functional, level = line.split()
 					return level
+		return 'scf'
 
 	# Helper function for detecting -frznuclei flag in numforce
 	def detect_frznuclei(self):
@@ -369,7 +369,7 @@ class Turboclass(object):
 			ri = self.detect_ri()
 		if level == '':
 			level = self.detect_level()
-		if frznuclei = '':
+		if frznuclei == '':
 			frznuclei = self.detect_frznuclei()
 		
 		if level != '':
