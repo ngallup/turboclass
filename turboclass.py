@@ -64,6 +64,7 @@ class Turboclass(object):
 		self.gradient = os.path.join(self.turboDir, 'gradient')
 		# ERROR CHECK LATER TO MAKE SURE THIS EXISTS
 		self.control = os.path.join(self.turboDir, 'control')
+		self.coord = os.path.join(self.turboDir, 'coord')
 
 		# Create and open stream to log file
 		self.logPath = os.path.join(self.turboDir, 'turbohistory.log')
@@ -165,6 +166,14 @@ class Turboclass(object):
 					functional, level = line.split()
 					return level
 
+	# Helper function for detecting -frznuclei flag in numforce
+	def detect_frznuclei(self):
+		with open(self.coord, 'r') as coordFile:
+			for line in coordFile:
+				if line.split()[-1] == 'f':
+					return True
+		return False
+
 
 	# For running a simple ridft.  Rollback variable implemented for easy recall
 	# of an energy for a particular geometry.  Rollback feature could be
@@ -261,13 +270,13 @@ class Turboclass(object):
 	# level should automatically detect its function from the control file
 	# -l, -ls, -md, -mdfile, -mdscript, -help will probably not be implemented
 	def jobex(self, rollback=None, energy=6, gcart=3, c=20, dscf=False, 
-		grad=False, statpt=False, relax=False, trans=False, level='scf',
+		grad=False, statpt=False, relax=False, trans=False, level='',
 		ri='', rijk=False, ex=False, keep=False):
 		
 		# Auto-detect certain flags
 		if ri == '':
 			ri = self.detect_ri()
-		if level == 'scf':
+		if level == '':
 			level = self.detect_level()
 
 		# Organize True/False args into a dictionary of a dictonary for easy access
@@ -353,13 +362,15 @@ class Turboclass(object):
 		ex='', d='', thrgrd='', central=False, polyedr=False,
 		ecnomic=False, diatmic=False, size='', mfile='', i=False,
 		c=False, prep=False, l='', ls='', scrpath='', override=False,
-		frznuclei=False, cosmo=False):
+		frznuclei='', cosmo=False):
 
 		# Auto-detect some flags
 		if ri == '':
 			ri = self.detect_ri()
 		if level == '':
 			level = self.detect_level()
+		if frznuclei = '':
+			frznuclei = self.detect_frznuclei()
 		
 		if level != '':
 			level = " -level %s" % level
