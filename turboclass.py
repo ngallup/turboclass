@@ -115,12 +115,12 @@ class Turboclass(object):
 	def sendToTerminal(self, command, message, dest='both'):
 		
 		# Print and log message
-		if dest == 'both'
+		if dest == 'both':
 			print message
 			self.writeLog(message)
-		elif dest == 'print'
+		elif dest == 'print':
 			print message
-		elif dest == 'log'
+		elif dest == 'log':
 			self.writeLog(message)
 		else:
 			print message
@@ -273,7 +273,7 @@ class Turboclass(object):
 
 		# Implement some other time
 		if rollback != None:
-			pass
+			self.rollback(rollback)
 		
 		print "Submitting ridft command"
 		self.writeLog('Submitting ridft command')
@@ -314,7 +314,7 @@ class Turboclass(object):
 		
 		# Implement some other time
 		if rollback != None:
-			pass
+			self.rollback(rollback)
 
 		print "Submitting rdgrad command"
 		self.writeLog("Submitting rdgrad command")
@@ -384,7 +384,7 @@ class Turboclass(object):
 
 		# Implement later
 		if rollback != None:
-			pass
+			self.rollback(rollback)
 		
 		comm =  "jobex -energy %s -gcart %s -c %s -level %s " % \
 			(energy, gcart, c, level)
@@ -514,7 +514,7 @@ class Turboclass(object):
 
 		# Implement later
 		if rollback != None:
-			pass
+			self.rollback(rollback)
 
 		text = "Submitting command %s" % comm
 		num_run = self.sendToTerminal(comm, text)
