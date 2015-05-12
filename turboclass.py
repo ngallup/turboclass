@@ -112,15 +112,29 @@ class Turboclass(object):
 		self.log.write(message + '\n')
 
 	# Helper function to send commands to the terminal
-	def sendToTerminal(self, command, message):
+	def sendToTerminal(self, command, message, dest='both'):
 		
 		# Print and log message
-		print message
-		self.writeLog(message)
+		if dest == 'both'
+			print message
+			self.writeLog(message)
+		elif dest == 'print'
+			print message
+		elif dest == 'log'
+			self.writeLog(message)
+		else:
+			print message
+			self.writeLog(message)
 
 		# Return a subprocess with the command
 		return subprocess.Popen(command, shell=True, cwd=self.turboDir,
 			stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+	# Helper printer function.  Sends text to stdout and/or log
+	# Kind of nice.
+	def printLog(self, message):
+		print message
+		self.writeLog(message)
 
 	# Helper function to send actual -r commands and record them
 	def sendActual(self, message):
