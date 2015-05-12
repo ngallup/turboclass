@@ -93,6 +93,38 @@ class Turboclass(object):
 		else:
 			return False
 
+	# generates machine file in current directory - necessary for trivial
+	# parallelization of NumForce
+	def genMfile(self, MFILE):
+		if os.path.isfile(MFILE) == True:
+			os.remove(MFILE)
+
+		# on Hoffman, the pehostfile is stored as environmental variable PEHOSTFILE
+		# if this is not present, the user may be on a login node, qrsh session,
+		# or the environmental variable has been changed
+		try:
+			self.printLog('PEHOSTFILE found as ' + os.environ['PEHOSTFILE'])
+		except:
+			self.printLog('PEHOSTFILE not found! Continuing in serial mode...')
+			return 1 # return 1 if error
+
+		# Check to make sure file exists
+                if not os.path.isfile(os.environ['PEHOSTFILE']):
+			self.printLog('... but that file does not exist!')
+			return 1
+
+		self.printLog('PEHOSTFILE not found')
+                with open(MFILE, 'w') as mFile:
+			with open(os.environ['PEHOSTFILE']) as peHostFile:
+				for line in peHostFile:
+                                        if len(line) > 0: #nodeName is printed numCores times
+						numCores = int(line.split(' ')[1])
+        	                                nodeName = line.split(' ')[0]
+						for x in range(numCores):
+							mFile.write(nodeName + '\n')
+		return 0 # returns 0 if paralellization is possible via MFILE
+								
+
 	# Used to conveniently write messages to the log file
 	def writeLog(self, message):
 
@@ -474,6 +506,8 @@ class Turboclass(object):
 		if size != '':
 			size = " -%s" % size
 		if mfile != '':
+			# generate machine file for trivial parallelization:
+			self.genMfile(mfile)
 			mfile = " -mfile %s" % mfile
 		if l != '':
 			l = " -l %s" % l
