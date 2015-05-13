@@ -96,6 +96,7 @@ class Turboclass(object):
 	# generates machine file in current directory - necessary for trivial
 	# parallelization of NumForce
 	def genMfile(self, MFILE):
+		MFILE = os.path.realpath(MFILE)
 		if os.path.isfile(MFILE) == True:
 			os.remove(MFILE)
 
@@ -222,6 +223,50 @@ class Turboclass(object):
 					return True
 		return False
 
+	# Helper function for parsing internal coordinates stretches, angles, and
+	# dihedrals.  Returns three lists of lists in that order.  *atoms can
+	# either take the place of a series of independent integers, or a list
+	# of integers subdivided into stretch series (2 integers, angle series
+	# (3 integers), and dihedral series (4 integers)
+	def parse_frozen_internals(self, *atoms):
+		
+		# Create empty lists
+		stretches = []
+		angles = []
+		dihedrals = []
+
+		for set in atoms[0]:
+			if type(set) in [list,tuple]:
+				if len(set) == 2:
+					stretches.append(set)
+				elif len(set) == 3:
+					angles.append(set)
+				elif len(set) == 4:
+					dihedrals.append(set)
+				else:
+					print set # DELTE
+					print len(set)
+					self.printLog("Something is wrong with the designated set of " \
+						"frozen atoms.  Please check that they're correct")
+					sys.exit(1)
+			elif type(set) not in [list, tuple]:
+				try: 
+					int(set)
+					if len(atoms) == 2:
+						stretches.append(set)
+					elif len(atoms) == 3:
+						angles.append(set)
+					elif len(atoms) == 4:
+						dihedrals.append(set)
+				except Exception as e:
+					self.printLog("Non-integer value detected in set of frozen" \
+						" atoms.  Double check list")
+					self.printLog(str(e))
+					sys.exit(1)
+
+		return stretches, angles, dihedrals
+		
+
 	# For rolling back a calculation to a particular configuration.  Method
 	# will truncate energy and gradient files and replace coord with
 	# appropriate geometry
@@ -245,16 +290,6 @@ class Turboclass(object):
 			else:
 				pass # Do normal routine
 
-		# Truncate energies
-		with open(self.energy, 'r') as enerFile:
-			ener_lines = enerFile.readlines()
-			ener_lines = ener_lines[:geometry+1]
-		with open(self.energy, 'w') as enerFile:
-			for line in ener_lines:
-				enerFile.write(line)
-			if "$end" not in ener_lines[-1]:
-				enerFile.write("$end")
-
 		# Find coords and truncate gradient
 		with open(self.gradient, 'r') as gradFile:
 			gradLines = []
@@ -271,17 +306,27 @@ class Turboclass(object):
 					coordLines.append(line)
 				if 'cycle =%7s' % geometry in line:
 					isCycle = True
+
+		# Throw error if no coordinates found in gradient file
+		if coordLines == []:
+			message = "Warning!  Rollback couldn't find coordinates "
+			message += "corresponding to configuration %s.  " % geometry
+			message += "Make sure the gradient file exists, and there is"
+			message += " a coordinate entry for that configuration."
 			
-			# Throw error if no coordinates found in gradient file
-			if coordLines == []:
-				message = "Warning!  Rollback couldn't find coordinates "
-				message += "corresponding to configuration %s.  " % geometry
-				message += "Make sure the gradient file exists, and there is"
-				message += " a coordinate entry for that configuration."
-				
-				print message
-				self.writeLog(message)
-				sys.exit(1)
+			print message
+			self.writeLog(message)
+			sys.exit(1)
+
+		# Truncate energies
+		with open(self.energy, 'r') as enerFile:
+			ener_lines = enerFile.readlines()
+			ener_lines = ener_lines[:geometry+1]
+		with open(self.energy, 'w') as enerFile:
+			for line in ener_lines:
+				enerFile.write(line)
+			if "$end" not in ener_lines[-1]:
+				enerFile.write("$end")
 
 		# Write out truncated gradient and new coord file
 		with open(self.gradient, 'w') as gradFile:
@@ -395,7 +440,10 @@ class Turboclass(object):
 	def jobex(self, rollback=None, energy=6, gcart=3, c=20, dscf=False, 
 		grad=False, statpt=False, relax=False, trans=False, level='',
 		ri='', rijk=False, ex=False, keep=False):
-		
+
+		# Record number of starting configurations		
+		init_configs = len(self)
+
 		# Auto-detect certain flags
 		if ri == '':
 			ri = self.detect_ri()
@@ -469,8 +517,11 @@ class Turboclass(object):
 
 			tries += 1
 
-		print "Jobex command has successfully finished"
-		self.writeLog("Jobex command has successfully finished")
+		# Find how many steps were taken
+		final_configs = len(self)
+		diff = final_configs - init_configs
+
+		self.printLog("Jobex command has successfully finished %s steps" % diff)
 
 	# For running numfore in either a serial or parallel environment.  Rollback
 	# method not currently implemented and mfile implementation is probably
@@ -603,8 +654,52 @@ class Turboclass(object):
 		print "NumForce has successfully finished."
 		self.writeLog("Numforce has successfully finished.")
 
-	def constrained_int_opt(self, rollback=None, otherflags=None):
-		pass
+	# For running constrained internal optimizations using internal coordinates
+	# within turbomole.  Currently only tested with bond stretches.  Angles
+	# and dihedrals are not being targetted yet.
+	def constrained_int_opt(self, *frozen, **kwargs):
+
+		# Auto-detect certain flags
+		try: ri = kwargs['ri']
+		except: kwargs['ri'] = self.detect_ri()
+		try: level = kwargs['level']
+		except: level = self.detect_level()
+
+		if 'rollback' in kwargs:
+			self.rollback(kwargs['rollback'])
+
+		energy = kwargs.pop('energy', 6)
+		gcart = kwargs.pop('gcart', 3)
+		c = kwargs.pop('c', 20)
+		
+
+      # Organize True/False args into a dictionary of a dictonary for easy access
+		flags = {
+			'dscf'   : {True : '-dscf ',   False: ''},
+			'grad'   : {True : '-grad ',   False: ''},
+			'statpt' : {True : '-statpt ', False: ''},
+			'relax'  : {True : '-relax ',  False: ''},
+			'trans'  : {True : '-trans ',  False: ''},
+			'ri'     : {True : '-ri ',     False: ''},
+			'rijk'   : {True : '-rijk ',   False: ''},
+			'ex'     : {True : '-ex ',     False: ''},
+			'keep'   : {True : '-keep ',   False: ''} }
+
+		# Create command string to be sent to the shell
+		comm =  "jobex -energy %s -gcart %s -c %s -level %s " % \
+			(energy, gcart, c, level)
+
+		for key, value in kwargs.iteritems():
+			comm += flags[key][value]
+		
+
+		# Parse out frozen atoms
+		stretches, angles, dihedrals = self.parse_frozen_internals(frozen)
+		
+		print comm # DELETE
+		print "Stretches: ", stretches # DELETE
+		print "Angles: ", angles # DELETE
+		print "Dihedrals: ", dihedrals # DELETE
 
 	def constrained_int_ts(self, rollback=None, otherflags=None):
 		pass
