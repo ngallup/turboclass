@@ -437,10 +437,6 @@ class Turboclass(object):
 	# readable method with more advanced error handling.  Maybe.
 	# level should automatically detect its function from the control file
 	# -l, -ls, -md, -mdfile, -mdscript, -help will probably not be implemented
-#	def jobex(self, rollback=None, energy=6, gcart=3, c=20, dscf=False, 
-#		grad=False, statpt=False, relax=False, trans=False, level='',
-#		ri='', rijk=False, ex=False, keep=False):
-
 	def jobex(self, **kwargs):
 
 		# Record number of starting configurations		
@@ -662,20 +658,17 @@ class Turboclass(object):
 			internal =  int_result.group(1)
 
 		# Auto-detect certain flags
-		try: ri = kwargs['ri']
-		except: kwargs['ri'] = self.detect_ri()
-		try: level = kwargs['level']
-		except: level = self.detect_level()
+		ri = kwargs.get('ri', self.detect_ri())
+		level = kwargs.get('level', self.detect_level())
+		energy = kwargs.get('energy', 6)
+		gcart = kwargs.get('gcart', 3)
+		c = kwargs.get('c', 20)
+
 
 		# Execute rollback and then set to None so it's not accidentally called
 		if 'rollback' in kwargs:
 			self.rollback(kwargs['rollback'])
 			kwargs['rollback'] = None
-
-		energy = kwargs.pop('energy', 6)
-		gcart = kwargs.pop('gcart', 3)
-		c = kwargs.pop('c', 20)
-		
 
       # Organize True/False args into a dictionary of a dictonary for easy access
 		flags = {
@@ -715,10 +708,11 @@ class Turboclass(object):
 			frozen_atoms += [val for dihe in dihedrals for val in dihe]
 
 			# Freeze cartesian atoms involved in frozen internal
-			freeze.freeze(self.coord, frozen_atoms)
+			freeze.freeze(self.coord, *frozen_atoms)
 
 			kwargs['c'] = 5
-			self.jobex("%s=%s" % (key,value) for key,value in kwargs.iteritems())
+			print kwargs # DELETE
+			self.jobex(**kwargs)
 		
 
 		# If in internals stage, go through cartesian scheme
