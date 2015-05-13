@@ -441,17 +441,17 @@ class Turboclass(object):
 #		grad=False, statpt=False, relax=False, trans=False, level='',
 #		ri='', rijk=False, ex=False, keep=False):
 
-	def jobex(self, **kwargs)
+	def jobex(self, **kwargs):
 
 		# Record number of starting configurations		
 		init_configs = len(self)
 
-		# Auto-detect certain flags
-#		if ri == '':
-#			ri = self.detect_ri()
-#		if level == '':
-#			level = self.detect_level()
-		kwargs['ri'] = kwargs.get(val)
+		# Auto-detect parameters if not specified
+		kwargs['ri'] = kwargs.pop('ri', self.detect_ri())
+		level = kwargs.pop('level', self.detect_level())
+		energy = kwargs.pop('energy', 6)
+		gcart = kwargs.pop('gcart', 3)
+		c = kwargs.pop('c', 20)
 
 		# Organize True/False args into a dictionary of a dictonary for easy access
 		flags = { 
@@ -465,21 +465,17 @@ class Turboclass(object):
 			'ex'     : {True : '-ex ',     False: ''},
 			'keep'   : {True : '-keep ',   False: ''} }
 
-		# Implement later
-		if rollback != None:
-			self.rollback(rollback)
+		# Rollback to previous configuration if specified
+		if 'rollback' in kwargs:
+			self.rollback(kwargs['rollback'])
+			kwargs['rollback'] = None
 		
 		comm =  "jobex -energy %s -gcart %s -c %s -level %s " % \
 			(energy, gcart, c, level)
-		comm += flags['dscf'][dscf]
-		comm += flags['grad'][grad]
-		comm += flags['statpt'][statpt]
-		comm += flags['relax'][relax]
-		comm += flags['trans'][trans]
-		comm += flags['ri'][ri]
-		comm += flags['rijk'][rijk]
-		comm += flags['ex'][ex]
-		comm += flags['keep'][keep]
+		
+		# Append flags
+		for key, value in kwargs.iteritems():
+			comm += flags[key][value]
 
 		# Begin sending commands to the shell
 		print "Submitting command %s" % comm
