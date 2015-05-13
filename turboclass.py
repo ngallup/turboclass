@@ -18,7 +18,7 @@ March 2015, UCLA
 ==============================================================================
 '''
 
-import os, sys, optparse, subprocess
+import os, sys, optparse, subprocess, re
 import freeze, unfreeze
 
 # For easy submission, FINISH LATER.  LONG TERM.
@@ -437,18 +437,21 @@ class Turboclass(object):
 	# readable method with more advanced error handling.  Maybe.
 	# level should automatically detect its function from the control file
 	# -l, -ls, -md, -mdfile, -mdscript, -help will probably not be implemented
-	def jobex(self, rollback=None, energy=6, gcart=3, c=20, dscf=False, 
-		grad=False, statpt=False, relax=False, trans=False, level='',
-		ri='', rijk=False, ex=False, keep=False):
+#	def jobex(self, rollback=None, energy=6, gcart=3, c=20, dscf=False, 
+#		grad=False, statpt=False, relax=False, trans=False, level='',
+#		ri='', rijk=False, ex=False, keep=False):
+
+	def jobex(self, **kwargs)
 
 		# Record number of starting configurations		
 		init_configs = len(self)
 
 		# Auto-detect certain flags
-		if ri == '':
-			ri = self.detect_ri()
-		if level == '':
-			level = self.detect_level()
+#		if ri == '':
+#			ri = self.detect_ri()
+#		if level == '':
+#			level = self.detect_level()
+		kwargs['ri'] = kwargs.get(val)
 
 		# Organize True/False args into a dictionary of a dictonary for easy access
 		flags = { 
@@ -527,11 +530,6 @@ class Turboclass(object):
 	# method not currently implemented and mfile implementation is probably
 	# rudimentary.  Currently -scrpath, -l, and -ls is a little mysterious 
 	# and I haven't tested how to use them
-	# Ideas to implement later: 
-	#  automatic detection of frznuclei
-	#  automatic ri
-	#  automatic level
-	#  mfile generation
 	def numforce(self, rollback=None, ri='', rijk=False, level='',
 		ex='', d='', thrgrd='', central=False, polyedr=False,
 		ecnomic=False, diatmic=False, size='', mfile='', i=False,
@@ -659,14 +657,24 @@ class Turboclass(object):
 	# and dihedrals are not being targetted yet.
 	def constrained_int_opt(self, *frozen, **kwargs):
 
+		# Detect if on cartesian or internal stage
+		internal = None
+		with open(self.control, 'r') as controlFile:
+			control_lines = controlFile.read()
+			int_stage = re.compile("internal\s+(on|off)")
+			int_result = re.search(int_stage, control_lines)
+			internal =  int_result.group(1)
+
 		# Auto-detect certain flags
 		try: ri = kwargs['ri']
 		except: kwargs['ri'] = self.detect_ri()
 		try: level = kwargs['level']
 		except: level = self.detect_level()
 
+		# Execute rollback and then set to None so it's not accidentally called
 		if 'rollback' in kwargs:
 			self.rollback(kwargs['rollback'])
+			kwargs['rollback'] = None
 
 		energy = kwargs.pop('energy', 6)
 		gcart = kwargs.pop('gcart', 3)
@@ -695,11 +703,31 @@ class Turboclass(object):
 
 		# Parse out frozen atoms
 		stretches, angles, dihedrals = self.parse_frozen_internals(frozen)
+		if stretches + angles + dihedrals == []:
+			self.printLog("No frozen internals specified.  Please correct this first.")
+			sys.exit(1)
 		
 		print comm # DELETE
 		print "Stretches: ", stretches # DELETE
 		print "Angles: ", angles # DELETE
 		print "Dihedrals: ", dihedrals # DELETE
+
+		# If in cartesian stage, go through cartesian scheme
+		if internal == 'off':
+			frozen_atoms = [val for stre in stretches for val in stre]
+			frozen_atoms += [val for angl in angles for val in angl]
+			frozen_atoms += [val for dihe in dihedrals for val in dihe]
+
+			# Freeze cartesian atoms involved in frozen internal
+			freeze.freeze(self.coord, frozen_atoms)
+
+			kwargs['c'] = 5
+			self.jobex("%s=%s" % (key,value) for key,value in kwargs.iteritems())
+		
+
+		# If in internals stage, go through cartesian scheme
+		elif internal == 'on':
+			pass
 
 	def constrained_int_ts(self, rollback=None, otherflags=None):
 		pass
