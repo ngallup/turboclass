@@ -55,13 +55,9 @@ def freeze(coord,*atoms):
 	coordLines = coordFile.readlines()
 	
 	atomList = [val for atom in atoms for val in atom]
-	print atomList # DELETE
-	#for atom in atoms:
-	#	atomList.append(int(atom))
 	
 	# Append f's to lines unless already present
 	for atom in atomList:
-		print atom # DELETE
 		if coordLines[atom].split()[-1] == 'f':
 			print "Frozen coordinate found for atom %d.  Proceeding." % atom
 			continue
