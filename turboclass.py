@@ -208,11 +208,6 @@ class Turboclass(object):
 	# level = CC2, MP2, SCF, not a functional
 	# Fix some other time
 	def detect_level(self):
-		#with open(self.control, 'r') as controlFile:
-		#	for line in controlFile:
-		#		if "functional" in line:
-		#			functional, level = line.split()
-		#			return level
 		return 'scf'
 
 	# Helper function for detecting -frznuclei flag in numforce
@@ -235,7 +230,7 @@ class Turboclass(object):
 		angles = []
 		dihedrals = []
 
-		for set in atoms[0]:
+		for set in atoms:
 			if type(set) in [list,tuple]:
 				if len(set) == 2:
 					stretches.append(set)
@@ -244,7 +239,6 @@ class Turboclass(object):
 				elif len(set) == 4:
 					dihedrals.append(set)
 				else:
-					print set # DELTE
 					print len(set)
 					self.printLog("Something is wrong with the designated set of " \
 						"frozen atoms.  Please check that they're correct")
@@ -691,7 +685,7 @@ class Turboclass(object):
 		
 
 		# Parse out frozen atoms
-		stretches, angles, dihedrals = self.parse_frozen_internals(frozen)
+		stretches, angles, dihedrals = self.parse_frozen_internals(*frozen)
 		if stretches + angles + dihedrals == []:
 			self.printLog("No frozen internals specified.  Please correct this first.")
 			sys.exit(1)
@@ -710,8 +704,32 @@ class Turboclass(object):
 			# Freeze cartesian atoms involved in frozen internal
 			freeze.freeze(self.coord, *frozen_atoms)
 
+			# Remove $cartesianstep block if it exists
+			cartesian_block = [
+				'$cartesianstep', 
+				'  total steps', 
+				'  steps remaining', 
+				'  forceupdate', 
+				'  fixed internals'
+			]
+
+			new_control_lines = []
+			with open(self.control, 'r+') as controlFile:
+				control_lines = controlFile.readlines()
+				for line in control_lines:
+					if any(cart_line in line for cart_line in cartesian_block):
+						pass
+					else:
+						new_control_lines.append(line)
+
+				# Now write new control
+				controlFile.seek(0)
+				for line in new_control_lines:
+					controlFile.write(line)
+				controlFile.truncate()
+
 			kwargs['c'] = 5
-			print kwargs # DELETE
+			print "KWARGS for cartesian jobex", kwargs # DELETE
 			self.jobex(**kwargs)
 		
 
