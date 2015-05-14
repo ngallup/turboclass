@@ -54,8 +54,6 @@ def freeze(coord,*atoms):
 	coordFile = open(coord,'r')
 	coordLines = coordFile.readlines()
 	
-#	atomList = [val for atom in atoms for val in atom]
-	print atoms # DELETE
 	atomList = [atom for atom in atoms]
 	
 	# Append f's to lines unless already present
