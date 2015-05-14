@@ -163,6 +163,29 @@ class Turboclass(object):
 		return subprocess.Popen(command, shell=True, cwd=self.turboDir,
 			stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
+	# Helper function for reading terminal output line-by-line
+	def readTerminal(self, proc, dest='print'):
+
+		out_string = ""
+
+		# Check that the proc hasn't terminated
+		while proc.poll() is None:
+			out = proc.stdout.readline()
+			out_string += out
+			if dest == 'both':
+				print out,
+				self.writeLog(out)
+			elif dest == 'print':
+				print out,
+			elif dest == 'log':
+				self.writeLog(out)
+			else:
+				print out,
+				self.writeLog(out)
+
+		# Return stdout string after going back to the beginning
+		return out_string
+
 	# Helper printer function.  Sends text to stdout and/or log
 	# Kind of nice.
 	def printLog(self, message):
@@ -394,10 +417,12 @@ class Turboclass(object):
 		
 		print "Submitting ridft command"
 		self.writeLog('Submitting ridft command')
-		p = subprocess.Popen("ridft", shell=True, cwd=self.turboDir, 
-									stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-		out = p.stdout.read()
-		print out
+		p = subprocess.Popen(
+			"ridft", shell=True, cwd=self.turboDir, 
+			stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+		)
+
+		out = self.readTerminal(p)
 
 		# Error several times before terminating
 		tries = 1
@@ -416,8 +441,7 @@ class Turboclass(object):
 			self.writeLog("Re-attempting ridft")
 			p = subprocess.Popen("ridft", shell=True, cwd=self.turboDir,
 								stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-			out = p.stdout.read()
-			print out
+			out = self.readTerminal(p)
 			
 			tries += 1
 
@@ -437,8 +461,7 @@ class Turboclass(object):
 		self.writeLog("Submitting rdgrad command")
 		p = subprocess.Popen("rdgrad", shell=True, cwd=self.turboDir,
 									stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-		out = p.stdout.read()
-		print out
+		out = self.readTerminal(p)
 
 		# Error several times and troubleshoot
 		tries = 1
@@ -458,8 +481,7 @@ class Turboclass(object):
 			self.writeLog("Re-attempting rdgrad")
 			p = subprocess.Popen("rdgrad", shell=True, cwd=self.turboDir,
 								stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-			out = p.stdout.read()
-			print out
+			out = self.readTerminal(p)
 			
 			# Try running ridft to fix the problem
 			if "rdgrad ended abnormally" in out:
@@ -519,8 +541,7 @@ class Turboclass(object):
 		opt = subprocess.Popen(comm, shell=True, cwd=self.turboDir,
 			stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 		
-		opt_out = opt.stdout.read()
-		print opt_out
+		opt_out = self.readTerminal(opt)
 
 		# Super shitty troubleshooting.  Needs refining.
 		tries = 1
@@ -541,8 +562,7 @@ class Turboclass(object):
 			new_opt = subprocess.Popen(comm, shell=True, cwd=self.turboDir,
 				stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-			opt_out = new_opt.stdout.read()
-			print opt_out
+			opt_out = self.readTerminal(new_opt)
 
 			# Try running ridft to fix the problem, if there was one
 			if "program stopped" in opt_out:
@@ -634,8 +654,7 @@ class Turboclass(object):
 		text = "Submitting command %s" % comm
 		num_run = self.sendToTerminal(comm, text)
 
-		num_out = num_run.stdout.read()
-		print num_out
+		num_out = self.readTerminal(num_run)
 
 		# Try to troubleshoot
 		tries = 1
@@ -657,8 +676,7 @@ class Turboclass(object):
 			text = "Re-submitting command %s" % comm
 			num_run = self.sendToTerminal(comm, text)
 
-			num_out = num_run.stdout.read()
-			print num_out
+			num_out = self.readTerminal(num_run)
 
 			# Try running ridft and rdgrad to fix the problem if there was one
 			if "program stopped" in num_out:
