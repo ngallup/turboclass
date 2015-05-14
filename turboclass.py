@@ -259,7 +259,53 @@ class Turboclass(object):
 					sys.exit(1)
 
 		return stretches, angles, dihedrals
+
+	# Returns a flat list of atoms that need to be frozen in cartesian space
+	def parse_frozen_cartesians(self, *atoms):
+		frozen_atoms = [atom for set in atoms for atom in set]
+		return frozen_atoms
 		
+	# Use turbomole's define submenu to specify frozen stretches, angles,
+	# and dihedrals, and generate a new set of internal coordinates
+	def define_internals(self, *frozen_atoms):
+		
+		stretches, angles, dihedrals = self.parse_frozen_internals(*frozen_atoms)
+
+		define = subprocess.Popen("define", shell=False, cwd=self.turboDir,
+			stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+			stdin=subprocess.PIPE)
+
+		define.stdin.write("\n")
+
+		define.stdin.write("y\n")
+		define.stdin.write("desy\n")
+		define.stdin.write("i\n")
+		define.stdin.write("idef\n")
+		define.stdin.write("f stre 1 2\n")
+		define.stdin.write("\n\n\n")
+		define.stdin.write("ired\n")
+		define.stdin.write("*\n")
+		define.stdin.write("\n\n\n\n\n")
+		define.stdin.write("*\n")
+	
+
+		# Exit
+		define.stdin.write("qq")
+		#stdout, stderr = define.communicate("qq")
+
+		stdout, stderr = define.communicate()
+		print stdout
+
+	# Uses turbomole's define submenu to specify frozen cartesians, and
+	# generate a new set of cartesian coordinates
+	def define_cartesians(self, *frozen_atoms):
+		pass
+		
+#		define = subprocess.Popen("define", shell=False, cwd=self.turboDir,
+#			stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+#			stdin=subprocess.PIPE)
+
+
 
 	# For rolling back a calculation to a particular configuration.  Method
 	# will truncate energy and gradient files and replace coord with
@@ -641,7 +687,16 @@ class Turboclass(object):
 	# For running constrained internal optimizations using internal coordinates
 	# within turbomole.  Currently only tested with bond stretches.  Angles
 	# and dihedrals are not being targetted yet.
+	# self.constrained_int_opt([set1], [set2], ..., flag=value)
 	def constrained_int_opt(self, *frozen, **kwargs):
+
+		# Check that recursive call should end (c = 0)
+		try:
+			if kwargs['c'] <= 0:
+				printLog("Constrained optimized has completed the designated number of steps.")
+				return
+		except:
+			pass
 
 		# Detect if on cartesian or internal stage
 		internal = None
@@ -695,11 +750,9 @@ class Turboclass(object):
 		print "Angles: ", angles # DELETE
 		print "Dihedrals: ", dihedrals # DELETE
 
-		# If in cartesian stage, go through cartesian scheme
+		# If in cartesian stage, go through cartesian scheme before switching
 		if internal == 'off':
-			frozen_atoms = [val for stre in stretches for val in stre]
-			frozen_atoms += [val for angl in angles for val in angl]
-			frozen_atoms += [val for dihe in dihedrals for val in dihe]
+			frozen_atoms = self.parse_frozen_cartesians(*frozen)
 
 			# Freeze cartesian atoms involved in frozen internal
 			freeze.freeze(self.coord, *frozen_atoms)
@@ -728,14 +781,31 @@ class Turboclass(object):
 					controlFile.write(line)
 				controlFile.truncate()
 
-			kwargs['c'] = 5
-			print "KWARGS for cartesian jobex", kwargs # DELETE
-			self.jobex(**kwargs)
+			# Finally run 5 cartesian optimization steps
+			cart_kwargs = kwargs.copy()
+			cart_kwargs['c'] = 5
+			self.jobex(**cart_kwargs)
+
+			# Change back to internal coordinates using define submenus
+			self.define_internals(*frozen)
 		
 
-		# If in internals stage, go through cartesian scheme
+		# If in internals stage, go through internal stage before switching
 		elif internal == 'on':
-			pass
+
+			self.define_cartesians(*frozen) # DELETE
+			sys.exit(1) # DELETE
+
+			# Make sure internal atoms are unfrozen
+			unfreeze_atoms = self.parse_frozen_cartesians(*frozen)
+			unfreeze.unfreeze(self.coord, *unfreeze_atoms)
+
+			self.define_cartesians(*frozen)
+
+
+
+			sys.exit(1)# DELETE
+			self.jobex(**kwargs)
 
 	def constrained_int_ts(self, rollback=None, otherflags=None):
 		pass
