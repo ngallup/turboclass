@@ -293,31 +293,63 @@ class Turboclass(object):
 	def define_internals(self, *frozen_atoms):
 		
 		stretches, angles, dihedrals = self.parse_frozen_internals(*frozen_atoms)
-
+		
 		define = subprocess.Popen("define", shell=False, cwd=self.turboDir,
 			stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
 			stdin=subprocess.PIPE)
 
 		define.stdin.write("\n")
-
 		define.stdin.write("y\n")
-		define.stdin.write("desy\n")
 		define.stdin.write("i\n")
-		define.stdin.write("idef\n")
-		define.stdin.write("f stre 1 2\n")
-		define.stdin.write("\n\n\n")
+
+		# Convert all internals from d to f
+		for set in range(1, len(frozen_atoms)+1):
+			define.stdin.write("ic %s f\n\n" % set)
+			define.stdin.write("\n")
+
 		define.stdin.write("ired\n")
 		define.stdin.write("*\n")
 		define.stdin.write("\n\n\n\n\n")
 		define.stdin.write("*\n")
 	
-
-		# Exit
-		define.stdin.write("qq")
-		#stdout, stderr = define.communicate("qq")
-
 		stdout, stderr = define.communicate()
 		print stdout
+
+		if "define ended abnormally" in stdout:
+			self.printLog("Something went horribly wrong with define")
+			sys.exit(1)
+
+		# Remove $cartesianstep block if it exists
+		cartesian_block = [
+			'$cartesianstep', 
+			'  total steps', 
+			'  steps remaining', 
+			'  forceupdate', 
+			'  fixed internals'
+		]
+
+		otherflags = [
+			'$optinfo',
+			'$hessaprox'
+		]
+
+		new_control_lines = []
+		with open(self.control, 'r+') as controlFile:
+			control_lines = controlFile.readlines()
+			for line in control_lines:
+				if any(cart_line in line for cart_line in cartesian_block):
+					pass
+				elif any(cart_line in line for cart_line in otherflags):
+					pass
+				else:
+					new_control_lines.append(line)
+
+			# Now write new control
+			controlFile.seek(0)
+			for line in new_control_lines:
+				controlFile.write(line)
+			controlFile.truncate()
+		
 
 	# Uses turbomole's define submenu to specify frozen cartesians, and
 	# generate a new set of cartesian coordinates
@@ -770,34 +802,10 @@ class Turboclass(object):
 
 		# If in cartesian stage, go through cartesian scheme before switching
 		if internal == 'off':
-			frozen_atoms = self.parse_frozen_cartesians(*frozen)
-
+			
 			# Freeze cartesian atoms involved in frozen internal
+			frozen_atoms = self.parse_frozen_cartesians(*frozen)
 			freeze.freeze(self.coord, *frozen_atoms)
-
-			# Remove $cartesianstep block if it exists
-			cartesian_block = [
-				'$cartesianstep', 
-				'  total steps', 
-				'  steps remaining', 
-				'  forceupdate', 
-				'  fixed internals'
-			]
-
-			new_control_lines = []
-			with open(self.control, 'r+') as controlFile:
-				control_lines = controlFile.readlines()
-				for line in control_lines:
-					if any(cart_line in line for cart_line in cartesian_block):
-						pass
-					else:
-						new_control_lines.append(line)
-
-				# Now write new control
-				controlFile.seek(0)
-				for line in new_control_lines:
-					controlFile.write(line)
-				controlFile.truncate()
 
 			# Finally run 5 cartesian optimization steps
 			cart_kwargs = kwargs.copy()
